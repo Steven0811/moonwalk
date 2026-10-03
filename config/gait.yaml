@@ -1,0 +1,49 @@
+# Moonwalk gait parameters (owned by train/; read by cad/analysis for the phase-1 static analysis)
+# Units: mm, deg, s.  Coordinates as in robot.yaml (Z up, +Y forward). The robot travels toward -Y.
+# Sign convention for distances: "backward distance" = -(Δy) > 0 when moving backward.
+
+cycle_time: 4.0             # slow, statically stable version
+step_length: 40.0           # [phase1] ground distance each foot slides per cycle (= body travel per cycle)
+hip_height:                 # [phase1] nominal hip-axis height above the ground, held constant (per foot variant)
+  wheel: 174.3
+  ptfe: 175.3
+
+# Foot states (plantarflexion θ ≥ 0; foot pitch = -θ):
+#   flat   θ = 0            — wheels (or PTFE sole) on the ground
+#   switch θ = switch_angle — wheels/sole front edge AND toe-pad rear edge touch (robot.yaml foot.toe_pad.switch_angle)
+#   toe    θ = face_angle   — toe-pad face flat on the ground, wheels lifted (robot.yaml foot.toe_pad.face_angle)
+# Between states the foot rolls without slipping about its contact (axle / sole edge / pad edge).
+
+# Half cycle: leg A is the toe-raised support leg, leg B slides. The second half is the same with A and B
+# swapped. Keyframes are linear-interpolated in (B flat-position, foot θ, pelvis y).
+#   t           fraction of the half cycle
+#   A, B        foot state
+#   B_y         B's flat position relative to A's flat position, in units of step_length
+#   pelvis_y    pelvis (hip-axis midpoint) y relative to A's flat position, mm   [phase1: optimised]
+# The last keyframe is the first one with roles swapped, so its pelvis_y = first pelvis_y - step_length/2.
+# Table phase mapping (train/CLAUDE.md): 1 stance = slide_start, 2 slide = slide_start→slide_end,
+#   3 weight transfer = slide_end→(transfer|both_flat), 4 role swap = …→swap_end.
+half_cycle:
+  wheel:
+    - {name: slide_start, t: 0.00, A: toe,    B: flat,   B_y:  0.5, pelvis_y: 22.6}
+    - {name: slide_mid,   t: 0.25, A: toe,    B: flat,   B_y:  0.0, pelvis_y: 19.4}
+    - {name: slide_end,   t: 0.50, A: toe,    B: flat,   B_y: -0.5, pelvis_y: 1.1}
+    - {name: transfer,    t: 0.70, A: switch, B: switch, B_y: -0.5, pelvis_y: -1.6}
+    - {name: raise,       t: 0.85, A: switch, B: toe,    B_y: -0.5, pelvis_y: 3.3}
+    - {name: swap_end,    t: 1.00, A: flat,   B: toe,    B_y: -0.5}
+  ptfe:
+    - {name: slide_start, t: 0.00, A: toe,    B: flat,   B_y:  0.5, pelvis_y: 10.1}
+    - {name: slide_mid,   t: 0.25, A: toe,    B: flat,   B_y:  0.0, pelvis_y: 3.2}
+    - {name: slide_end,   t: 0.50, A: toe,    B: flat,   B_y: -0.5, pelvis_y: -7.7}
+    - {name: both_flat,   t: 0.75, A: flat,   B: flat,   B_y: -0.5, pelvis_y: -7.1}
+    - {name: swap_end,    t: 1.00, A: flat,   B: toe,    B_y: -0.5}
+
+# Standing pose (reset pose for train/). Feet side by side; knees pre-bent.
+#   wheel: both feet in the 'switch' state (wheels + pad edge) — with both feet flat the wheel variant
+#          rests on two collinear axle lines and has zero fore-aft support length.
+#   ptfe : both feet flat.
+standing:
+  hip_height: {wheel: 172.8, ptfe: 175.9}   # [phase1] derived for knees at 25°
+  pelvis_y: {wheel: -1.9, ptfe: -12.8}      # [phase1] relative to the feet's flat position (CoM centred)
+  foot_state: {wheel: switch, ptfe: flat}
+  # joint angles are derived by IK from the above and listed in cad/out/sizing_report.md

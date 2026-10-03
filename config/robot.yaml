@@ -1,0 +1,280 @@
+# Moonwalk Mini — robot description (single source of truth for cad/ and train/)
+#
+# Units (everywhere in this file unless a key says otherwise):
+#   length mm, mass g, angle deg, torque N·m, speed rad/s, density g/cm³
+# Coordinates: Z up, +Y forward, +X to the robot's RIGHT (right-handed: X = Y × Z).
+#   Left leg is at -X, right leg at +X. The right leg is the mirror of the left about the YZ plane.
+# Ownership (see root CLAUDE.md): geometry / materials / masses / collision / print -> cad/;
+#   servo, friction, joint ranges -> shared.
+
+hip_roll:
+  enabled: false            # single switch read by cad/ and train/; see "Conditions for adding hip roll"
+  range: [-20, 20]
+  # reserved space on each side of the pelvis for a future roll servo module (mm, pelvis frame)
+  reserved_module_pitch_mm: 0
+
+foot_variant: wheel          # wheel | ptfe   (both must build; this selects the one written as the default URDF)
+
+# ---------------------------------------------------------------------------------------------
+# Geometry (mm). Values marked [phase1] are set by cad/analysis/sizing_report.py; see cad/out/sizing_report.md
+# ---------------------------------------------------------------------------------------------
+geometry:
+  thigh: 80.0               # [phase1] hip axis -> knee axis
+  shank: 72.0               # [phase1] knee axis -> ankle axis
+  ankle_height: 28.0        # [phase1] ankle axis -> ground with the foot flat
+  hip_spacing: 56.0         # [phase1] distance between the two hip-pitch axes' leg centre planes = stance width
+  foot:
+    toe_length: 42.0        # [phase1] ankle axis -> toe tip (along +Y)
+    heel_length: 26.0       # [phase1] ankle axis -> heel end (along -Y)
+    width: 44.0             # [phase1] overall width including wheels
+    toe_pad:
+      length: 15.0          # along the foot, measured from the toe tip backwards
+      face_angle: 18.0      # wedge: pad face rises toward the toe; face is level with the ground at this plantarflexion
+      thickness: 3.0        # TPU thickness normal to the face
+      switch_angle: 10.0    # [phase1] plantarflexion at which the pad's rear edge first touches (target 8–12)
+      # rear-edge recess above the ground plane (flat foot) is DERIVED from switch_angle and the pivot
+      # (wheel axle or PTFE sole front edge); it is computed in code, never typed here.
+    wheel:
+      diameter: 12.0        # [phase1] 12 mm: the HF0306 clutch (Ø6.5) needs ≥1 mm wall under the axle
+      axle_y: -18.0         # [phase1] axle position along the foot (negative = behind the ankle)
+      width: 4.0            # tyre width
+      axle_diameter: 3.0
+      protrusion: 1.0       # wheel bottom below the lowest foot-body surface with the foot flat
+      heel_clearance: 1.5   # heel collision box bottom above the ground (flat foot)
+    ptfe:
+      pad_gap: 6.0          # [phase1] sole front edge -> pad rear edge, along the foot
+      heel_split: 12.0      # heel collision box length (rear part of the PTFE sole)
+
+# ---------------------------------------------------------------------------------------------
+# Structure (cad/ only): printed-part dimensions. Lateral positions are distances from the leg's
+# centre plane (all servos are centred on it, output horn facing outward). Vertical positions are in
+# the owning link's frame (origin on its parent joint axis). See cad/parts/*.py.
+# Lateral bands (derived from servo.geometry, see cad/params.py servo_bands):
+#   case |x| ≤ 11.5 · horn 11.5–14.5 · arm (horn-mounted plates) 13.5–17.0
+# ---------------------------------------------------------------------------------------------
+structure:
+  arm_thickness: 3.5        # horn-mounted bracket plate (sits 1 mm over the horn in a locating recess)
+  arm_half_width: 9.0       # hub radius = half width of every horn-mounted strip
+  horn_screws: 4            # M2 self-tapping screws into the horn (of 8 holes on the Ø12 PCD)
+  horn_screw_clear_radius: 3.0   # centre hole in horn-mounted plates: stock horn screw head (Ø5, +0.8 mm)
+  hub_clearance: 0.6        # radial gap between a parent and a child hub / horn
+  sweep_tip_clearance: 1.0  # radial gap at the tip of a swept strip
+  side_plate: [11.7, 13.3]  # servo-case side plates (between case face and arm band, outside the horn)
+  pocket_wall: 1.8          # wall around servo pockets (front/back/top)
+  hip_module:
+    bottom_z: -5.0          # lowest point of the cradle walls (radius ≤ 14.9 < thigh top gap)
+    top_wall: 2.2
+    front_extent: 19.0      # y extent of the stop region in the arm band (hip +90° stop face length)
+    back_extent: -15.0
+  pelvis:
+    plate_z: [26.9, 29.9]   # pelvis plate above the hip modules
+    plate_y: [-22.0, 22.0]
+    spine_half_width: 9.0   # central spine between the thighs' inner arms
+    spine_bottom_z: -8.0
+    hip_roll_reserve: [16.0, 40.0]   # |x| range kept free on the plate for a future roll-servo module
+  tray:
+    floor_z: [29.9, 31.9]
+    size_xy: [88.0, 60.0]
+    hole_pitch: 8.0
+    hole_d: 3.2
+    mount_xy: [32.0, 16.0]  # tray -> pelvis plate: 4 x M2.5 through grid holes at (±x, ±y), nuts under the plate
+    battery_rail:
+      rail_z: [43.0, 45.0]
+      rail_x: [-21.0, -13.0, 13.0, 21.0]
+      post_half: 3.0
+      strap_slot: [2.5, 12.0]
+  thigh:
+    top_gap: 15.5           # body starts this far below the hip axis (hip-servo case sweeps to r = 13.8)
+    upper_half_width: 9.0   # y half width down to the taper
+    lower_half_width: 12.4  # around the knee servo
+    taper_z: [-46.0, -53.0]
+    wall: 2.0               # tube wall (cable channel inside)
+    kneecap: {y: [9.0, 15.0], below: 20.0}   # knee hyper-extension stop flange (arm bands)
+  shank:
+    arm_bottom: -26.0       # horn arms (knee) end here and join the body
+    body_top: -24.0         # clears the thigh sweep at 120° knee flexion
+    ankle_servo_shaft_z: -37.0
+    tongue_half_width: 8.0
+    tongue_radius: 9.0
+    keel: {half_width: 3.0, length: 14.0}    # ankle hard-stop key on the tongue
+    cover_boss:             # bosses on the inner side holding the ankle-cover screws (M2 inserts along X)
+      y_out: 16.0           # bosses reach |y| = 16 (pocket walls end at 12)
+      insert_y: 13.0        # insert centre |y|
+      half_h: 3.0           # boss half height along z
+      depth: 5.0            # boss depth along -X from the cover face
+      z_offset: 3.0         # boss centres this far inside the cover's top / bottom edges
+  linkage:
+    crank_length: 12.0      # = lever length (parallelogram, 1:1)
+    lobe_radius: 4.5
+    rod_thickness: 2.5
+    rod_gap: 0.3
+    bearing: {name: MR52ZZ, d: 2.0, D: 5.0, B: 2.5, mass: 0.2}
+    pin: {name: M2x8 shoulder screw, d: 2.0, head: [3.8, 1.6], mass: 0.3}
+    backlash_deg: 0.2       # estimate from the two bearing pin joints; servo backlash is separate
+  ankle:
+    pin: {name: M3x30 screw, d: 3.0, head: [5.5, 3.0], mass: 1.8}
+    nut: {name: M3 nylock nut, D: 6.4, h: 4.0, mass: 0.5}
+    bearing: {name: MR63ZZ, d: 3.0, D: 6.0, B: 2.5, mass: 0.3}
+  foot:
+    fork_inner: 8.3         # fork arms at |x| = 8.3 … 11.3 around the shank tongue
+    fork_thickness: 3.0
+    hub_radius: 7.0
+    plate_thickness: 4.0
+    underside_clearance: 1.0     # wheel variant: underside above the switch-posture ground line
+    stop_top: -4.0               # ankle stop blocks (central band) reach up to here
+    heel_block: {y: [-26.0, -10.0], half_width: 17.6}
+    pad_seat_thickness: 3.0
+    pad_nub: {d: 3.0, h: 1.5}
+    friction_pad_tab: {thickness: 2.0, hole: 1.7}
+  wheel_set:
+    clutch: {name: HF0306, d: 3.0, D: 6.5, B: 6.0, mass: 0.6}
+    bearing: {name: MR63ZZ, d: 3.0, D: 6.0, B: 2.5, mass: 0.3}
+    axle_mass: 2.4
+    tyre_gap: 0.4
+  wiring: {base_link: 15.0, thigh: 3.0, shank: 2.0}   # lumped extra wiring mass (g) beyond the servo leads
+  fasteners:     # unit masses (g)
+    m2_screw: 0.25
+    m2_insert: 0.15
+    m25_screw: 0.35
+    m25_nut: 0.3
+
+# ---------------------------------------------------------------------------------------------
+# Joints (shared). Axis is given for the LEFT leg in the parent link frame; the right leg's axis is
+# derived by mirroring (pitch axes along X keep their sign; roll axes along Y flip).
+# Positive directions: hip + = leg swings forward; knee + = flexion (heel back); ankle - = plantarflexion.
+# ---------------------------------------------------------------------------------------------
+joints:
+  hip_pitch:   {axis: [1, 0, 0],  range: [-30, 90]}
+  knee_pitch:  {axis: [-1, 0, 0], range: [0, 120]}
+  ankle_pitch: {axis: [1, 0, 0],  range: [-35, 30]}
+  wheel_axle:  {axis: [1, 0, 0],  continuous: true, passive: true}
+  hip_roll:    {axis: [0, 1, 0],  range: [-20, 20]}   # only generated if hip_roll.enabled
+
+# ---------------------------------------------------------------------------------------------
+# Servo: Feetech HD-1910-C001 (official values @ 4.8 V)
+# ---------------------------------------------------------------------------------------------
+servo:
+  model: HD-1910-C001
+  vendor_step: cad/vendor/feetech_hd1910/HD-1910-C001.stp
+  mass: 21.0
+  stall_torque: 0.88        # N·m
+  rated_torque: 0.216       # N·m (sustained-load ceiling)
+  sim_torque_p99_limit: 0.62
+  no_load_speed: 7.64       # rad/s (438 deg/s)
+  resolution_deg: 0.087890625
+  backlash_deg: 0.5
+  latency_ms: [5, 10]       # estimate; to be measured
+  kp_servo: 4.0             # N·m/rad, estimate; identify on the bench
+  kd_servo: 0.04            # N·m·s/rad, estimate
+  armature: 0.0004          # kg·m², rotor inertia reflected through 1:320 (estimate)
+  horn_screw_head: [0.8, 0.4]   # protrusion of the stock horn screws beyond the output / idle horn faces (vendor model)
+  # Measured from the vendor STEP by cad/parts/servo.py (checked by cad/checks.py; mm, servo frame:
+  # origin = output shaft axis ∩ output-horn mounting face, +Z along the output shaft,
+  # +Y from the shaft toward the far (long) end of the case)
+  geometry:
+    case: [20.0, 34.0, 23.0]        # X, Y, Z extent of the case body
+    case_center: [0.0, 7.5, -14.5]  # centre of the case body in the servo frame
+    horn_diameter: 16.0
+    horn_thickness: 3.0
+    horn_face_to_case: 3.0          # output horn face is this far above the case top face
+    idle_horn_face_z: -29.0         # rear (idle) horn outer face
+    horn_hole_pcd: 12.0
+    horn_hole_diameter: 1.6
+    horn_hole_count: 8
+    mount_holes: [[-8.0, -7.5], [8.0, -7.5], [-8.0, 22.5], [8.0, 22.5]]   # XY on both case faces
+    mount_hole_diameter: 1.6
+    mount_hole_depth: 3.5
+    cable_exit: [[-10.0, 8.75, -18.45], [10.0, 8.75, -18.45]]           # connector openings on the ±X faces
+
+# ---------------------------------------------------------------------------------------------
+# Friction (shared; estimates until measured with the incline method). Combine mode in PhysX: min.
+# ---------------------------------------------------------------------------------------------
+friction:
+  toe_pad: 0.75             # TPU 85A
+  ptfe_sole: 0.10           # PTFE tape (0.05–0.15)
+  wheel_tyre: 0.9           # lateral grip of the printed/TPU tyre
+  structure: 0.4            # printed PETG body (heel backstop etc.)
+  floor: 0.9
+  wheel_rolling_resistance: 0.02   # equivalent coefficient (0.01–0.03); O-ring brake can raise it to 0.05–0.15
+  wheel_axle_coulomb: 0.0005       # N·m, estimate
+  wheel_axle_damping: 0.00002      # N·m·s/rad, estimate
+  slide_design_value: 0.15  # worst-case equivalent slide friction used in the phase-1 torque budget
+
+# ---------------------------------------------------------------------------------------------
+# Materials: effective densities (g/cm³). Printed values are estimates until the slicer/scale says otherwise.
+# Purchased parts carry a mass and get density = mass / simplified volume in code.
+# ---------------------------------------------------------------------------------------------
+materials:
+  petg_structural: {density: 0.80, note: "PETG, 4 walls 0.45 mm, 30% gyroid (estimate)"}
+  petg_light:      {density: 0.60, note: "PETG, 3 walls, 15% gyroid — trays/covers"}
+  tpu_85a:         {density: 0.90, note: "TPU 85A toe pad, 3 walls, 40% infill"}
+  ptfe_tape:       {density: 2.20}
+  steel:           {density: 7.85}
+
+# ---------------------------------------------------------------------------------------------
+# Phase-1 mass model (estimates; phase 2 replaces these with values computed from the solids).
+# CoM in the link frame (origin on the joint axis to the parent, zero pose orientation).
+# Electronics are listed separately below.
+# ---------------------------------------------------------------------------------------------
+mass_estimate:
+  # 2026-10-01: replaced the initial guesses (pelvis 201 / thigh 59 / shank 59 / foot 30 / 25 g, total 548 g)
+  # with the values computed from the phase-2 solids (cad/out/model_report.md), then re-ran phase 1.
+  base_link: {mass: 96.7, com: [0.0, 0.0, 17.9], note: "pelvis plate, 2 hip modules, 2 hip servos, tray, screws, wiring; electronics excluded"}
+  thigh:     {mass: 44.1, com: [0.0, 0.4, -57.3], note: "printed 17 + knee servo 21 + screws/wiring"}
+  shank:     {mass: 42.2, com: [-1.0, 0.5, -43.0], note: "printed 13 + ankle servo 21 + linkage + bearings + screws"}
+  foot_wheel: {mass: 28.0, com: [-1.1, -0.2, -15.7], note: "foot + toe pad + wheel set (L_foot + L_wheel)"}
+  foot_ptfe:  {mass: 24.0, com: [-1.5, 5.5, -17.9]}
+  budget_total_limit: 700.0
+
+# ---------------------------------------------------------------------------------------------
+# Electronics placeholders (models not chosen). Pelvis frame (= base_link frame), mm / g.
+# size = largest candidate + margin. 'position' is the block centre.
+# ---------------------------------------------------------------------------------------------
+electronics:
+  battery:     {size: [32.0, 58.0, 16.0], mass: 30.0, position: [0.0, 0.0, 53.0], note: "~450 mAh 2S LiPo"}
+  controller:  {size: [26.0, 52.0, 10.0], mass: 12.0, position: [0.0, 0.0, 37.0], note: "e.g. ESP32-S3 dev board"}
+  bus_adapter: {size: [20.0, 26.0, 8.0],  mass: 6.0,  position: [-28.0, 0.0, 36.0]}
+  imu:         {size: [16.0, 20.0, 4.0],  mass: 2.0,  position: [28.0, 0.0, 34.0]}
+  regulator:   {enabled: false, size: [22.0, 34.0, 12.0], mass: 8.0, position: [32.0, 0.0, 43.0], note: "4.8 V, >7 A peak"}
+  power_switch: {size: [12.0, 6.0, 8.0], mass: 1.0, position: [0.0, -31.0, 36.0], note: "rear edge, reachable"}
+  battery_rail:
+    axis: y
+    travel: [-15.0, 15.0]   # battery centre may slide along the rail within this range (pelvis frame, mm)
+  mass_uncertainty: 0.5     # ±50 % used by phase 1 and by train/ randomization
+  position_uncertainty: 10.0
+
+# ---------------------------------------------------------------------------------------------
+# Collision primitives (cad/ generates them from the geometry above; names are bound to physics
+# materials by train/assets/postprocess_usd.py — tell train/ if this scheme changes)
+# ---------------------------------------------------------------------------------------------
+collision:
+  shrink: 1.0               # leg collision boxes are this much smaller than the outer shape on each side
+  names:                    # {side} -> L | R
+    toe_pad: "{side}_foot_toe_pad"
+    sole: "{side}_foot_sole"
+    heel: "{side}_foot_heel"
+    wheel: "{side}_wheel_{lr}"      # lr -> in | out
+    body: "{side}_{link}_body"
+
+# ---------------------------------------------------------------------------------------------
+# Printing (values to be replaced from the tolerance test piece)
+# ---------------------------------------------------------------------------------------------
+print:
+  bed_size: [220.0, 220.0, 250.0]
+  nozzle: 0.4
+  layer: 0.2
+  wall: 2.4                 # default structural wall
+  wall_thin: 1.6
+  fillet: 1.0
+  servo_pocket_clearance: 0.20   # per side, on the case
+  horn_recess_clearance: 0.15    # radial, on the horn locating recess
+  horn_recess_depth: 1.0
+  bearing_press: -0.05           # bore = bearing OD + this (negative = interference)
+  insert_m2_hole: 3.2            # heat-set insert M2 x 3 mm
+  insert_m2_depth: 4.0
+  insert_m25_hole: 3.6
+  screw_m2_clear: 2.3
+  screw_m2_tap: 1.7              # self-tapping into the servo case / horn
+  screw_head_d: 3.8
+  screw_head_h: 1.6
+  shaft_clear: 0.25              # radial, for 3 mm steel pins in printed holes

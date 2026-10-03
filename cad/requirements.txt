@@ -1,0 +1,10 @@
+# conda create -n cad python=3.11 && conda run -n cad pip install -r cad/requirements.txt
+build123d==0.13.0
+cadquery-ocp-novtk==8.0.1.0.0
+ocp_vscode==4.1.0
+numpy==2.4.6
+scipy==1.17.1
+PyYAML==6.0.3
+matplotlib==3.11.2
+trimesh==5.1.0
+pytest==9.1.1
