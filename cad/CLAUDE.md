@@ -115,7 +115,7 @@ Claude Code models the robot in [build123d](https://github.com/gumyr/build123d),
 
 - **STL**: for 3D printing, one file per printed part, already rotated to the suggested print orientation
 - **STEP**: for viewing and measuring in FreeCAD or Fusion 360
-- **URDF**: for `train/` to import into Isaac Sim; masses, inertias and collision shapes are computed by the program, with no exporter in between
+- **URDF**: for `train/` to import into Isaac Lab; masses, inertias and collision shapes are computed by the program, with no exporter in between
 - **Model report**: mass, center of mass and inertia per link, interference check results, and view images
 
 The user views the 3D model live in VS Code with the OCP CAD Viewer extension (`ocp_vscode`).
@@ -131,7 +131,7 @@ Exporting a model with a CAD tool's URDF exporter commonly causes four problems.
 
 ### 1. Environment
 
-- Create a separate conda environment (e.g. `cad`) and install `build123d` and `ocp_vscode`. **Do not install them into Isaac Sim's Python or into the base environment.**
+- Create a separate conda environment (e.g. `cad`) and install `build123d` and `ocp_vscode`. **Do not install them into Isaac Sim's bundled Python (Isaac Lab lives there) or into the base environment.**
 - Pin package versions in `cad/requirements.txt`.
 
 ### 2. Parameters and coordinates

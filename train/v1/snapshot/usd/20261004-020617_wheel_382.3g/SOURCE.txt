@@ -1,0 +1,5 @@
+urdf: cad/out/urdf/moonwalk_mini_wheel.urdf
+usd: moonwalk_mini_wheel/moonwalk_mini_wheel.usda
+total_mass_g: 382.3
+converted: 2026-10-04 02:06:18
+isaaclab UrdfConverter, fix_base=False, merge_fixed_joints=True, collision_from_visuals=False, drive target none (stiffness=damping=0), physics variant physx

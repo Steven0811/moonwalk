@@ -7,7 +7,7 @@ This file is the **shared spec**: goals, motor, joint conventions, and the hand-
 | File | Contents | Phases covered |
 | --- | --- | --- |
 | [cad/CLAUDE.md](cad/CLAUDE.md) | Sizing feasibility analysis, mechanism and mass budget, foot design, build123d code-based modeling, printing | Phases 1 and 2; printing and weighing in phase 4 |
-| [train/CLAUDE.md](train/CLAUDE.md) | Isaac Sim import, servo model, gait, acceptance tests, reinforcement learning | Phase 3; calibration and robustness in phase 4 |
+| [train/CLAUDE.md](train/CLAUDE.md) | Isaac Lab import and environments, servo model, gait, acceptance tests, reinforcement learning | Phase 3; calibration and robustness in phase 4 |
 
 When working under `cad/` or `train/`, Claude Code reads both this file and that folder's CLAUDE.md. Anything that applies to both lives only in this file.
 
@@ -15,12 +15,12 @@ When working under `cad/` or `train/`, Claude Code reads both this file and that
 
 ## Goal and scope
 
-Design a small biped that **can actually be built**, validate it in Isaac Sim, then build it from 3D-printed parts and Feetech HD-1910-C001 servos, and have it perform Michael Jackson's moonwalk.
+Design a small biped that **can actually be built**, validate it in Isaac Lab (on Isaac Sim's PhysX), then build it from 3D-printed parts and Feetech HD-1910-C001 servos, and have it perform Michael Jackson's moonwalk.
 
 - At most 4 active DOF per leg, **3 by default** (hip pitch, knee, ankle pitch). Hip roll is added only when one of the "Conditions for adding hip roll" is met. Every joint uses an HD-1910-C001. Apart from motors, electronics, screws and bearings, all structural parts are 3D printed
 - The robot's size and weight are derived from what the motor can do, not the other way round
-- Four phases: (1) offline sizing and feasibility → (2) code-based modeling in build123d by Claude Code → (3) import into Isaac Sim, validate the gait and train → (4) prepare sim-to-real
-- The STL for printing and the URDF for Isaac Sim come from the same modeling program. Do not assemble a separate robot from simple primitives
+- Four phases: (1) offline sizing and feasibility → (2) code-based modeling in build123d by Claude Code → (3) import into Isaac Lab, validate the gait and train → (4) prepare sim-to-real
+- The STL for printing and the URDF for Isaac Lab come from the same modeling program. Do not assemble a separate robot from simple primitives
 - Firmware and physical assembly come after phase 4, but from phase 1 onward every design decision must be buildable
 - Every phase has pass criteria. Do not move to the next phase until they pass; if they cannot pass, report the measured reason instead of forcing it
 
@@ -162,13 +162,13 @@ moonwalk/
   - `gait.yaml` belongs to `train/`
 - **Every version in `train/` has its own snapshot**: when a version is created, `config/` and the USD are copied into `train/vN/snapshot/`, so later changes to `cad/` or `config/` do not change the behavior of existing versions
 - **When simulation reveals a mechanical problem** (e.g. not enough torque, a foot that cannot reach the floor, interference), `train/` reports the measured numbers. Size changes go back through `cad/` (rerun the analysis and `cad/build.py`); do not work around them on the simulation side.
-- **Separate environments**: modeling uses its own conda environment (`cad`); simulation uses Isaac Sim's bundled Python. The two sides exchange files only and never import each other.
+- **Separate environments**: modeling uses its own conda environment (`cad`); simulation uses Isaac Lab, installed into Isaac Sim 6.1's bundled Python and run with conda deactivated (see train/CLAUDE.md). The two sides exchange files only and never import each other.
 
 ---
 
 ## General rules
 
-1. **If a unit is uncertain, measure it.** For example, PhysX's `maxJointVelocity` is in deg/s; setting it to 30 thinking it is rad/s locks the joints at 30°/s, keeps torque saturated, and the simulation raises no error at all. For any property whose unit is uncertain, measure its actual effect with a small experiment instead of guessing from documentation.
+1. **If a unit is uncertain, measure it.** For example, PhysX's USD attribute `maxJointVelocity` is in deg/s while Isaac Lab's `joint_velocity_limit` is documented as rad/s; setting it to 30 thinking it is rad/s locks the joints at 30°/s, keeps torque saturated, and the simulation raises no error at all. For any property whose unit is uncertain, measure its actual effect with a small experiment instead of guessing from documentation.
 2. **Calibrate the sign of any directional metric against a sample with a known correct answer.** A flipped sign raises no error, and all downstream analysis looks reasonable until an outside fact contradicts it.
 3. **If a change produces no change in the metric at all, look one layer down.** A complete non-response is itself evidence that the problem lies below the layer being edited.
 4. **Report numbers with their measurement conditions**: harness or not, duration, number of environments, which model version, which foot type.

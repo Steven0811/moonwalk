@@ -1,0 +1,19 @@
+post-processed 2026-10-04 02:07:18, variant wheel
+friction/restitution combine mode: min; restitution 0
+L_wheel_out            Sphere  zone=wheel    material=tpu_tyre mu=0.9
+L_wheel_in             Sphere  zone=wheel    material=tpu_tyre mu=0.9
+L_foot_toe_pad         Cube    zone=toe_pad  material=tpu_toe_pad mu=0.75
+L_foot_heel            Cube    zone=heel     material=petg_structure mu=0.4
+L_foot_body            Cube    zone=body     material=petg_structure mu=0.4
+L_shank_body           Cube    zone=body     material=petg_structure mu=0.4
+L_thigh_body           Cube    zone=body     material=petg_structure mu=0.4
+R_wheel_out            Sphere  zone=wheel    material=tpu_tyre mu=0.9
+R_wheel_in             Sphere  zone=wheel    material=tpu_tyre mu=0.9
+R_foot_toe_pad         Cube    zone=toe_pad  material=tpu_toe_pad mu=0.75
+R_foot_heel            Cube    zone=heel     material=petg_structure mu=0.4
+R_foot_body            Cube    zone=body     material=petg_structure mu=0.4
+R_shank_body           Cube    zone=body     material=petg_structure mu=0.4
+R_thigh_body           Cube    zone=body     material=petg_structure mu=0.4
+base_link_body         Cube    zone=body     material=petg_structure mu=0.4
+base_link_tray         Cube    zone=body     material=petg_structure mu=0.4
+base_link_battery      Cube    zone=body     material=petg_structure mu=0.4

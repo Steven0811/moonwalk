@@ -1,0 +1,7 @@
+check_model 2026-10-04 02:16:49 variant wheel backend Isaac Sim PhysX dt 1 ms: PASS
+[PASS] Collision bodies are primitives; zoned materials bound, friction combine min: 17 collision prims; non-primitive: none; unbound / wrong combine: none
+[PASS] Total and per-link mass = model_report.md: total 382.31 g vs report 382.3 g; max per-link |Δ| 0.005 g over 9 links; missing none
+[PASS] Joint limits = robot.yaml: 6 active joints, max |Δ| 0.0003°; order ['L_hip_pitch', 'R_hip_pitch', 'L_knee_pitch', 'R_knee_pitch', 'L_ankle_pitch', 'R_ankle_pitch', 'L_wheel_axle', 'R_wheel_axle']
+[PASS] Joint positive directions (hip+ forward, knee+ heel back, ankle− toe down): L: hip+10 foot Δy +25.7 mm, knee+10 foot Δy -12.2 mm (heel back), ankle−10 foot pitch -10.0°; R: hip+10 foot Δy +25.7 mm, knee+10 foot Δy -12.2 mm (heel back), ankle−10 foot pitch -10.0°
+[PASS] joint_velocity_limit is rad/s (one joint flat out reaches ≈ 7.64 rad/s): L_hip_pitch peak 7.640 rad/s = 438°/s with limit 7.64 rad/s and a 50 rad/s velocity target (a deg/s reading would cap at 0.133 rad/s)
+[PASS] Standing pose, joints held, 5 s on the ground: no explosion, sinking or bouncing: base start z 172.8 mm, min 172.7 mm (drop 0.08 mm), z peak-to-peak after 1 s 0.001 mm, max speed after 1 s 0.105 cm/s, max tilt 0.25°, finite True (stand pose hip 14.0° knee 25.2° ankle 1.2°; wall 13 s)

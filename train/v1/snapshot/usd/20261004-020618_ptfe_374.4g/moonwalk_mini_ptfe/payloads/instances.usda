@@ -1,0 +1,78 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.3.2"
+    }
+    endTimeCode = 1000000
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    startTimeCode = 0
+    upAxis = "Z"
+)
+
+def Scope "Instances"
+{
+    def Xform "base_link" (
+        prepend references = @./geometries.usd@</Geometries/base_link>
+    )
+    {
+        over "base_link"
+        {
+        }
+    }
+
+    def Xform "L_thigh" (
+        prepend references = @./geometries.usd@</Geometries/L_thigh>
+    )
+    {
+        over "L_thigh"
+        {
+        }
+    }
+
+    def Xform "L_shank" (
+        prepend references = @./geometries.usd@</Geometries/L_shank>
+    )
+    {
+        over "L_shank"
+        {
+        }
+    }
+
+    def Xform "L_foot_ptfe" (
+        prepend references = @./geometries.usd@</Geometries/L_foot_ptfe>
+    )
+    {
+        over "L_foot_ptfe"
+        {
+        }
+    }
+
+    def Xform "R_thigh" (
+        prepend references = @./geometries.usd@</Geometries/R_thigh>
+    )
+    {
+        over "R_thigh"
+        {
+        }
+    }
+
+    def Xform "R_shank" (
+        prepend references = @./geometries.usd@</Geometries/R_shank>
+    )
+    {
+        over "R_shank"
+        {
+        }
+    }
+
+    def Xform "R_foot_ptfe" (
+        prepend references = @./geometries.usd@</Geometries/R_foot_ptfe>
+    )
+    {
+        over "R_foot_ptfe"
+        {
+        }
+    }
+}
+

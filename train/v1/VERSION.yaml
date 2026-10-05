@@ -1,0 +1,18 @@
+# train/v1 — status and provenance (train/CLAUDE.md "Version status")
+status: open
+parent: null
+created: 2026-10-04
+frozen: null
+git_commit: null          # filled at freeze time
+snapshot:
+  model_report_date: 2026-10-02          # cad/out/model_report.md used for the USD
+  total_mass_g: {wheel: 382.3, ptfe: 374.4}
+  robot_yaml_commit: c6abd0d              # config/robot.yaml and gait.yaml unchanged since this commit
+  usd:
+    wheel: snapshot/usd/20261004-020617_wheel_382.3g   # check_model: PASS (Isaac Sim PhysX, dt 1 ms)
+    ptfe: snapshot/usd/20261004-020618_ptfe_374.4g     # check_model: PASS (Isaac Sim PhysX, dt 1 ms)
+runtime:
+  isaac_lab: 3.0.0 (release/3.0.0)
+  isaac_sim: 6.1.0-rc.26
+  physics_backend: isaacsim_physx
+results: {}               # acceptance numbers with measurement conditions, filled at freeze time

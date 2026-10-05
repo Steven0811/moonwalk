@@ -1,6 +1,6 @@
-# train/ — Isaac Sim Simulation, Gait and Training
+# train/ — Isaac Lab Simulation, Gait and Training
 
-This file covers phase 3 (import into Isaac Sim, gait validation, acceptance tests, and reinforcement learning if needed) and the calibration and robustness parts of phase 4. Motor specs, joint conventions and hand-off rules are in the root [CLAUDE.md](../CLAUDE.md).
+This file covers phase 3 (import into Isaac Lab, gait validation, acceptance tests, and reinforcement learning if needed) and the calibration and robustness parts of phase 4. Motor specs, joint conventions and hand-off rules are in the root [CLAUDE.md](../CLAUDE.md).
 
 **This folder's inputs**: `cad/out/urdf/` (URDF and meshes) and `cad/out/model_report.md`. Read only; if the model has a problem, report it so `cad/` can fix and regenerate it.
 
@@ -10,10 +10,15 @@ This file covers phase 3 (import into Isaac Sim, gait validation, acceptance tes
 
 ## Runtime environment
 
-- Isaac Sim 6.0 standalone, at `~/Desktop/isaac-sim-standalone-6.0.0-linux-x86_64`
-- Run with Isaac Sim's bundled Python: `cd <isaac-sim> && env -u PYTHONPATH ./python.sh ~/Desktop/moonwalk/train/v<N>/tools/<script>.py` (the model import tools are `train/assets/<script>.py`)
+All simulation, gait validation and training run on **Isaac Lab**. Do not write standalone Isaac Sim scripts (`SimulationApp` / `World` / `omni.isaac.core`); everything goes through Isaac Lab's environment, asset, actuator and sensor APIs.
+
+- Isaac Lab 3.0.0 at `~/Desktop/IsaacLab` (branch `release/3.0.0`), installed into the bundled Python of Isaac Sim 6.1.0 standalone at `~/Desktop/isaac-sim-standalone-6.1.0-linux-x86_64`, linked as `~/Desktop/IsaacLab/_isaac_sim`
+- **Run with conda deactivated**: `isaaclab.sh` refuses to run while `CONDA_PREFIX` is set, and Isaac Lab does not support combining a downloaded Isaac Sim with conda, uv or venv. From a shell that has conda active, strip it: `env -u CONDA_PREFIX -u CONDA_DEFAULT_ENV -u CONDA_SHLVL -u VIRTUAL_ENV ~/Desktop/IsaacLab/isaaclab.sh -p ~/Desktop/moonwalk/train/v<N>/tools/<script>.py` (the model import tools are `train/assets/<script>.py`)
+- **Physics backend is Isaac Sim PhysX, stated explicitly**: Isaac Lab 3.0 defaults to Newton. Every env config sets the PhysX backend, and every run that goes through Isaac Lab's training CLI passes `physics=isaacsim_physx`. Every reported number states the backend. Newton or OV PhysX may be compared later, but only in a new version
+- Isaac Lab 3.0 has no `--headless` flag; it runs without a viewer by default (`--viz kit` opens one). `isaaclab.sh` is deprecated and removed in 3.1; do not upgrade Isaac Lab in the middle of a version
+- Do not `pip install` into Isaac Sim's Python without telling the user: it is shared by Isaac Lab and the Isaac Sim GUI. Record any extra packages in the version's `README.md`
 - Never import code from `cad/`; read the values you need from files in `config/` or `cad/out/`
-- Physics rate ≥ 1 kHz; control rate 100 Hz (matching the real robot's target bus rate)
+- Physics rate ≥ 1 kHz (`sim.dt` ≤ 0.001); control rate 100 Hz (matching the real robot's target bus rate), i.e. `decimation` = `0.01 / sim.dt`
 
 ---
 
@@ -25,9 +30,10 @@ This file covers phase 3 (import into Isaac Sim, gait validation, acceptance tes
 
 1. **Only modify the current version's folder.** While developing or training `vN`, only add or modify files under `train/vN/`. Do not touch any file in another version (including tools like `play_policy.py` and `evaluate.py`), even if it has a bug.
 2. **Do not fix old versions' bugs in place.** Fix them in the current version and record in the current version's `README.md`: which version, which file, what the problem is, and whether it affects that version's known results. Only modify an old version when the user explicitly asks, and then add an "After-the-fact changes" section to that version's `README.md` stating the date, what changed and why.
-3. **Versions never import each other.** A version's code may only import modules from its own folder, Isaac Sim and third-party packages. No importing another `vN`, and no `sys.path` entries pointing at other versions; there is no shared `lib/` under `train/`.
+3. **Versions never import each other.** A version's code may only import modules from its own folder, Isaac Lab, Isaac Sim and third-party packages. No importing another `vN`, and no `sys.path` entries pointing at other versions; there is no shared `lib/` under `train/`.
 4. **Every version has its own config and model snapshot.** When a version is created, copy the current `config/robot.yaml`, `config/gait.yaml` and the USD produced by `train/assets/` into `vN/snapshot/`. The version reads only its own snapshot, so later changes to `cad/` or `config/` do not change its behavior. To use a new model or config, create a new version.
 5. **All paths are relative to the version folder.** Checkpoints, logs and videos go in `vN/runs/`; no hard-coded absolute paths into other versions.
+6. At the end of each training session, record a video showing the robot's current walking performance.
 
 ### Creating a new version
 
@@ -62,23 +68,22 @@ Each version's `VERSION.yaml` records:
 
 ---
 
-## Importing into Isaac Sim
+## Importing into Isaac Lab
 
 The import tools live in `train/assets/` and are the only code in `train/` that belongs to no version. They only produce USD from `cad/out/urdf/` and contain no controller or training code. Generated USD goes in `train/assets/build/`, one new file per run, named by date and the total mass from `model_report.md`, never overwriting old files. Each version copies the USD it needs into `vN/snapshot/`, so changing the import tools does not affect existing versions.
 
-1. `import_urdf.py`: convert `cad/out/urdf/` to USD with Isaac Sim's URDF Importer. Settings: base not fixed, merge fixed joints, do not generate collisions from visual meshes.
-2. `postprocess_usd.py`: write from `robot.yaml`:
-   - Drives: force mode, stiffness = damping = 0, `maxForce` = stall torque 0.88 Nm
-   - `maxJointVelocity` = **438 (the unit is deg/s)**
-   - Armature
-   - Physics materials bound by collision name (e.g. `L_foot_toe_pad`), with friction combine mode set to `min`
-   - A contact sensor on each foot (normal and tangential force)
-3. `check_model.py`: run after every import; if any check fails, do not proceed to simulation:
+1. `import_urdf.py`: convert `cad/out/urdf/` to USD with Isaac Lab's `isaaclab.sim.converters.UrdfConverter`. Settings: base not fixed, merge fixed joints, do not generate collisions from visual meshes.
+2. `postprocess_usd.py`: write into the USD only what cannot be set from the Isaac Lab configs: physics materials bound by collision name (e.g. `L_foot_toe_pad`), with friction combine mode set to `min`
+3. **Robot config in each version** (`vN/lib/robot_cfg.py`): an `ArticulationCfg` that spawns the snapshot USD and reads `vN/snapshot/robot.yaml` for:
+   - Actuators: the custom servo actuator (see "Servo model") on the six active joints; the wheel axles get the passive wheel actuator (see "Simulating the foot wheel"). PhysX drive stiffness = damping = 0, so the joint is driven only by the torque the actuator computes
+   - `joint_effort_limit` = stall torque 0.88 Nm, `joint_velocity_limit` = 7.64 rad/s (Isaac Lab documents rad/s; `check_model.py` must confirm by measurement), armature
+   - `spawn.activate_contact_sensors=True` (without it `ContactSensor` raises at startup), and a `ContactSensorCfg` on each foot (normal and tangential force)
+4. `check_model.py`: run after every import, loading the robot through the same `ArticulationCfg` pattern; if any check fails, do not proceed to simulation:
    - Total mass and per-link masses match `cad/out/model_report.md` (confirms the import changed nothing)
    - Each joint's positive direction: command +10° and measure the direction the distal end moves (positive knee = heel moves back)
    - Joint limits equal `robot.yaml`
    - All collision bodies are primitives, with no convex hulls
-   - A single joint driven at full speed actually reaches about 7.64 rad/s (confirms the `maxJointVelocity` unit is right)
+   - A single joint driven at full speed actually reaches about 7.64 rad/s (confirms the `joint_velocity_limit` unit is right)
    - With all joints locked, the robot stands on the ground for 5 seconds without exploding, sinking through the floor or bouncing
 
 ---
@@ -87,7 +92,7 @@ The import tools live in `train/assets/` and are the only code in `train/` that 
 
 The real robot uses angle servos, so **the actuators in simulation must behave like servos, not ideal torque motors**.
 
-Implement it in the Python control loop, computing at every physics step:
+Implement it as a custom Isaac Lab actuator (`vN/lib/servo_model.py`, subclassing `isaaclab.actuators.ActuatorBase` with its own config class). Isaac Lab calls the actuator's `compute()` inside the decimation loop, so it runs at every physics step:
 
 ```
 tau_cmd   = Kp_servo * (theta_target - theta) - Kd_servo * theta_dot
@@ -96,6 +101,8 @@ tau       = clip(tau_cmd, -tau_avail, +tau_avail)
 ```
 
 - `tau_stall` = 0.88 Nm, `omega_noload` = 7.64 rad/s (official 4.8 V values)
+- Isaac Lab's built-in `DCMotorCfg` (torque-speed curve) and `DelayedPDActuatorCfg` (latency) each cover only part of this model and have no backlash or quantization, so they are not used directly; the custom actuator may reuse their code
+- **The actuator only runs per physics step when Python owns the decimation loop.** With PhysX, `DirectRLEnv.step()` calls `_apply_action()` and the actuators once per physics step. Some backends (e.g. Newton) take over the decimation loop, and then the actuator runs once per control step. Confirm once per version with a log of the actuator call count against the physics step count
 - Estimate `Kp_servo` and `Kd_servo` for now; identify them from bench step responses once the hardware arrives
 - The simulation must include:
   - Position command latency: assume 5–10 ms for now, update after measuring
@@ -108,7 +115,7 @@ tau       = clip(tau_cmd, -tau_avail, +tau_avail)
 
 ## Friction and feet
 
-- **Set PhysX's friction combine mode to `min`**: the default averages, so a 0.08 sole on a 0.9 floor becomes 0.49 and does not slide at all.
+- **Set PhysX's friction combine mode to `min`** (on the USD materials, and `friction_combine_mode="min"` on the ground's `RigidBodyMaterialCfg`): the default averages, so a 0.08 sole on a 0.9 floor becomes 0.49 and does not slide at all.
 - **Do not change friction coefficients at runtime through the API**, since the real robot cannot do that. "Phase-dependent friction" is achieved mechanically by the one-way foot wheel.
 - Always use the measured friction coefficients in `robot.yaml` (or the estimates before measurement); never tune them to make the gait succeed.
 
@@ -117,7 +124,7 @@ tau       = clip(tau_cmd, -tau_avail, +tau_avail)
 - Each wheel is a passive revolute joint (no drive) on the foot, with its axis lateral
 - The collision body is a sphere (generated by `cad/`)
 - **PhysX has no rolling resistance by default**, so an untreated wheel is frictionless and more optimistic than reality. Add joint damping plus a constant Coulomb friction torque on the axle to represent bearing friction, rolling resistance and the O-ring. Estimate the values for now; measure them on the real robot with an incline rolling test and write them back
-- **PhysX has no native one-way clutch**. Check the wheel's angular velocity at every physics step in the control loop: when it turns forward (the foot moving forward relative to the ground), apply a braking torque large enough to stop it; when it turns backward, apply none. This can be implemented as asymmetric damping, large in the forward direction and small in the backward direction
+- **PhysX has no native one-way clutch**. Implement the wheel as a second custom actuator (`vN/lib/foot_wheel.py`) on the wheel axles, which receives no commands and computes the friction and clutch torques from the measured joint state. Check the wheel's angular velocity at every physics step: when it turns forward (the foot moving forward relative to the ground), apply a braking torque large enough to stop it; when it turns backward, apply none. This can be implemented as asymmetric damping, large in the forward direction and small in the backward direction
 - Calibrate the one-way direction's sign against a known case first: put a single foot on an incline and confirm it rolls backward and locks forward
 
 **Unresolved risk**: at the moment weight transfers from the toe-raised foot to the flat foot, the flat foot is loaded. The one-way clutch blocks forward motion but not backward; if the body's center of mass pushes that foot backward at that moment, it will roll away. This is the first thing to verify in phase 3.
@@ -150,9 +157,9 @@ The "General rules" in the root file (units, signs, look one layer down on no re
 
 **Measurement and validation**
 
-1. **Judge behavior only headless or from recordings.** `_APP.update()` (servicing the GUI window) advances physics on its own: the same policy that stands for the full 10 seconds headless may fall within 3 seconds in the live window. `world.render()` and recording are not affected.
+1. **Judge behavior only from runs without a viewer, or from recordings.** In the earlier standalone Isaac Sim work, servicing the GUI window (`_APP.update()`) advanced physics on its own: the same policy that stood for the full 10 seconds headless fell within 3 seconds in the live window. Treat Isaac Lab's Kit viewer (`--viz kit`) as suspect in the same way until a test shows identical results with and without it; use `--video` recordings for visual checks.
 2. **With a wrong reset pose, nothing responds.** If the reset pose is the midpoint of the joint ranges (a deep squat), every episode starts by falling, and any control fix leaves survival time exactly unchanged.
-3. **Vectorized-environment bugs raise no errors; they return wrong numbers in a plausible range.** Examples: `get_net_contact_forces()` without `dt=` returns 0 N; foot pitch computed in the pelvis frame instead of the world frame; the reward reading the previous step's stale state. A vectorized version must match the single-environment numbers, not merely "run".
+3. **Vectorized-environment bugs raise no errors; they return wrong numbers in a plausible range.** Examples: in the earlier Isaac Sim work, `get_net_contact_forces()` without `dt=` returned 0 N; foot pitch computed in the pelvis frame instead of the world frame; the reward reading the previous step's stale state. A vectorized version must match the single-environment numbers, not merely "run".
 4. **Normalize accumulating metrics; lengthen the horizon for saturating ones.** Lateral drift accumulates with survival time, so divide by time or distance before comparing. When the evaluation window is too short (e.g. 4 seconds), survival time is capped at the window length and looks like the model's ceiling. Compare models at equal amounts of training.
 5. **Evaluate long enough.** The gait takes several cycles to reach steady state; short runs give inaccurate slide distance and left-right symmetry. All acceptance runs are ≥ 60 seconds.
 6. **Make sure the floor is big enough.** Long, many-environment evaluations can walk robots off the floor, which then scores as "sinking". Before running, check that `environments × spacing + duration × speed` fits.
@@ -197,26 +204,28 @@ The "General rules" in the root file (units, signs, look one layer down on no re
 train/
   CLAUDE.md
   assets/                 # The only code not belonging to a version: cad/out/urdf → USD
-    import_urdf.py
-    postprocess_usd.py    # Writes drives, materials and sensors from robot.yaml
+    import_urdf.py        # Isaac Lab UrdfConverter
+    postprocess_usd.py    # Writes zoned physics materials into the USD
     check_model.py        # Post-import model checks; failure blocks simulation
     build/                # Generated USD, one new file per run, never overwritten
   v1/
     README.md             # Parent version, what changed, why, results summary, after-the-fact changes
     VERSION.yaml          # Status, provenance, freeze info, results
     snapshot/             # robot.yaml, gait.yaml and USD copied when the version was created
-    scenes/               # Ground and test scenes
     lib/
-      servo_model.py      # Servo model (torque-speed, latency, backlash, quantization, constant-current option)
+      robot_cfg.py        # ArticulationCfg: snapshot USD, actuators, limits, contact sensors (from snapshot/robot.yaml)
+      servo_model.py      # Custom Isaac Lab actuator (torque-speed, latency, backlash, quantization, constant-current option)
+      foot_wheel.py       # Custom Isaac Lab actuator for the wheel axles: rolling resistance, one-way clutch
       gait_fsm.py         # Four-phase state machine
       contact.py          # Contact points, center of pressure, support polygon
-      foot_wheel.py       # Foot wheel: rolling resistance, one-way clutch
-      env.py              # Simulation environment (only for reinforcement learning versions)
+      env_cfg.py          # DirectRLEnvCfg: scene (ground, robot, sensors), sim dt, decimation, PhysX backend, events
+      env.py              # DirectRLEnv: used by the rule-based controller and by reinforcement learning
+      agents/             # rsl_rl PPO runner config (only for reinforcement learning versions)
     tools/
-      run_gait.py         # Run the gait, headless or recorded
+      run_gait.py         # Run the rule-based gait in the Isaac Lab env, without a viewer or recorded
       measure_torque.py   # Logs torque, speed and saturation at every physics step
       validate.py         # Acceptance table
-      train.py            # Training (only for reinforcement learning versions)
+      train.py            # Training with rsl_rl (only for reinforcement learning versions)
       evaluate.py
       play_policy.py
     runs/                 # Checkpoints, logs, videos (large files stay out of git)
@@ -230,7 +239,7 @@ train/
 
 **Phase 3: Import and simulation**
 1. Run `import_urdf.py`, `postprocess_usd.py` and `check_model.py` in `train/assets/` to import the URDF; continue only when every check passes. Then create `train/v1/` (with `snapshot/`, `README.md` and `VERSION.yaml`); all following steps happen in the current version's folder
-2. `servo_model.py`, then a single-joint step-response test confirming a maximum speed of about 7.64 rad/s and a torque limit of 0.88 Nm
+2. `robot_cfg.py`, `env_cfg.py` and `env.py` (the Isaac Lab environment, PhysX backend, 1 kHz physics, 100 Hz control), then `servo_model.py` and a single-joint step-response test confirming a maximum speed of about 7.64 rad/s and a torque limit of 0.88 Nm
 3. `foot_wheel.py`, then a single-foot incline test confirming that it rolls backward, locks forward, and has the configured rolling resistance
 4. Standing test: reset from the standing pose in `gait.yaml` at the correct height and stand for 30 seconds; tracking error < 2°, no saturation. Both foot types must pass
 5. Four-phase state machine, slow version with a 4-second cycle, first with a single friction coefficient, then with zoned materials; no harness. Pass criterion: 60 seconds without falling
@@ -238,9 +247,9 @@ train/
 7. Shorten the cycle step by step to the target speed, adding IMU feedback and ankle center-of-pressure control if needed (comparing the two approaches in hard rule 13)
 8. `measure_torque.py` and `validate.py`: run the full acceptance suite on both foot types, record numbers together with measurement methods, and hand the comparison to the user to choose the final foot design
    - `validate.py` must tally the direction of every fall (forward, backward, left, right). If falling sideways is the main failure mode, report it against "Conditions for adding hip roll" in the root file
-9. (Optional) Consider reinforcement learning only if the rule-based controller from step 7 cannot pass acceptance, and follow hard rules 7–11. Reinforcement learning goes in a new version, not into the rule-based controller's version
+9. (Optional) Consider reinforcement learning only if the rule-based controller from step 7 cannot pass acceptance, and follow hard rules 7–11. Reinforcement learning goes in a new version, not into the rule-based controller's version. It reuses the version's `DirectRLEnv` and trains with rsl_rl PPO (the library installed with Isaac Lab); state the library and its version with every result
 
 **Phase 4 (calibration and robustness)**
 10. Bench identification of the servos: Kp, latency, backlash; plus the current-to-torque conversion if constant-current mode is used. Write the results back to `robot.yaml`
 11. After `cad/` writes back the weighed masses and regenerates the URDF, re-import and rerun `check_model.py`; create a new version with the new USD, then run acceptance
-12. Add domain randomization and run the robustness acceptance test. While electronics models are not chosen, the electronics randomization (mass ±50%, position ±1 cm) must be in place from the start of phase 3, not deferred to phase 4; once models are chosen, replace the randomization center values with the weighed values
+12. Add domain randomization (Isaac Lab event terms, `EventTermCfg`, in `env_cfg.py`) and run the robustness acceptance test. While electronics models are not chosen, the electronics randomization (mass ±50%, position ±1 cm) must be in place from the start of phase 3, not deferred to phase 4; once models are chosen, replace the randomization center values with the weighed values
